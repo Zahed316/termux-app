@@ -1,9 +1,13 @@
 package com.termux.view;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.os.Build;
 
 import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
@@ -104,6 +108,23 @@ public final class TerminalRenderer {
 
             for (int vCol = 0; vCol < columns; ) {
                 BidiLayout.LogicalCell cell = visualCells[vCol];
+                // Sixel bitmap cell: draw directly and reset run tracking (ported from master).
+                if (TextStyle.isTerminalBitmap(cell.style)) {
+                    Bitmap bitmap = screen.getSixelBitmap(cell.style);
+                    if (bitmap != null) {
+                        float left = vCol * mFontWidth;
+                        float top = heightOffset - mFontLineSpacing;
+                        Rect bitmapSrcRect = screen.getSixelRect(cell.style);
+                        RectF bitmapDestRect = new RectF(left, top, left + mFontWidth, top + mFontLineSpacing);
+                        canvas.drawBitmap(bitmap, bitmapSrcRect, bitmapDestRect, null);
+                    }
+                    vCol += 1;
+                    lastRunStyle = 0;
+                    lastRunInsideCursor = false;
+                    lastRunStartColumn = vCol;
+                    lastRunFontWidthMismatch = false;
+                    continue;
+                }
                 if (cell.displayWidth == 0 && cell.codePoint == 0) {
                     vCol++;
                     continue;
@@ -150,6 +171,7 @@ public final class TerminalRenderer {
                                 lastRunInsideCursor, lastRunInsideSelection,
                                 lastRunIsRtl, lastRunFontWidthMismatch,
                                 cursorShape, reverseVideo);
+                    }
                     }
                     lastRunStyle = style;
                     lastRunInsideCursor = insideCursor;
@@ -346,8 +368,8 @@ public final class TerminalRenderer {
         if (cursor != 0) {
             mTextPaint.setColor(cursor);
             float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
-            if (cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE) cursorHeight /= 4.;
-            else if (cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR) right -= ((right - left) * 3) / 4.;
+            if (cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE) cursorHeight /= 4.f;
+            else if (cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR) right -= (((right - left) * 3) / 4.f);
             canvas.drawRect(left, y - cursorHeight, right, y, mTextPaint);
         }
 
@@ -367,9 +389,16 @@ public final class TerminalRenderer {
             mTextPaint.setStrikeThruText(strikeThrough);
             mTextPaint.setColor(foreColor);
 
-            canvas.drawTextRun(text, startCharIndex, runWidthChars,
-                    startCharIndex, runWidthChars,
-                    left, y - mFontLineSpacingAndAscent, isRtl, mTextPaint);
+            // The text alignment is the default Paint.Align.LEFT.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                canvas.drawTextRun(text, startCharIndex, runWidthChars,
+                        startCharIndex, runWidthChars,
+                        left, y - mFontLineSpacingAndAscent, isRtl, mTextPaint);
+            } else {
+                // isRtl is effectively false pre-M here: RTL shaping requires drawTextRun (API 23);
+                // on API 21-22 RTL text renders unshaped, same as pre-PR behavior.
+                canvas.drawText(text, startCharIndex, runWidthChars, left, y - mFontLineSpacingAndAscent, mTextPaint);
+            }
         }
 
         if (savedMatrix) canvas.restore();
