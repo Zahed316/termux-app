@@ -172,7 +172,6 @@ public final class TerminalRenderer {
                                 lastRunIsRtl, lastRunFontWidthMismatch,
                                 cursorShape, reverseVideo);
                     }
-                    }
                     lastRunStyle = style;
                     lastRunInsideCursor = insideCursor;
                     lastRunInsideSelection = insideSelection;
