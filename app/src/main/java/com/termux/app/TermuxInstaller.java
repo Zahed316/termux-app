@@ -192,10 +192,33 @@ final class TermuxInstaller {
                                 }
 
                                 if (!isDirectory) {
-                                    try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
+                                    // ponytail: bootstrap zip hardcodes /data/data/com.termux/ absolute paths
+                                    // (shebangs in bin/, configs in etc/, dpkg db in var/). Remap to this app's
+                                    // prefix at extract time for the renamed test package; ELF files are skipped
+                                    // since byte-embedded paths can't be length-shifted safely.
+                                    boolean remappable = zipEntryName.startsWith("bin/") || zipEntryName.startsWith("etc/") ||
+                                        zipEntryName.startsWith("var/");
+                                    if (remappable) {
+                                        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
                                         int readBytes;
                                         while ((readBytes = zipInput.read(buffer)) != -1)
-                                            outStream.write(buffer, 0, readBytes);
+                                            buf.write(buffer, 0, readBytes);
+                                        byte[] bytes = buf.toByteArray();
+                                        boolean isElf = bytes.length >= 4 && (bytes[0] & 0xFF) == 0x7F && bytes[1] == 'E' && bytes[2] == 'L' && bytes[3] == 'F';
+                                        if (!isElf) {
+                                            String text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                                            text = text.replace("/data/data/com.termux/", "/data/data/" + TermuxConstants.TERMUX_PACKAGE_NAME + "/");
+                                            bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                                        }
+                                        try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
+                                            outStream.write(bytes);
+                                        }
+                                    } else {
+                                        try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
+                                            int readBytes;
+                                            while ((readBytes = zipInput.read(buffer)) != -1)
+                                                outStream.write(buffer, 0, readBytes);
+                                        }
                                     }
                                     if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("libexec") ||
                                         zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods")) {
