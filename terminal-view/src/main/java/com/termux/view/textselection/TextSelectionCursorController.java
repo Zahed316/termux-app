@@ -220,6 +220,11 @@ public class TextSelectionCursorController implements CursorController {
     public void updatePosition(TextSelectionHandleView handle, int x, int y) {
         TerminalBuffer screen = terminalView.mEmulator.getScreen();
         final int scrollRows = screen.getActiveRows() - terminalView.mEmulator.mRows;
+        // ponytail: local l2v/v2l shorthands — the mRenderer/mEmulator chain was repeated 8×
+        final java.util.function.BiFunction<Integer, Integer, Integer> l2v =
+            (lx, ly) -> terminalView.mRenderer.translateLogicalToVisualColumn(terminalView.mEmulator, lx, ly);
+        final java.util.function.BiFunction<Integer, Integer, Integer> v2l =
+            (vx, vy) -> terminalView.mRenderer.translateVisualToLogicalColumn(terminalView.mEmulator, vx, vy);
         if (handle == mStartHandle) {
             mSelY1 = terminalView.getCursorY(y);
             if (mSelY1 < -scrollRows) {
@@ -237,11 +242,11 @@ public class TextSelectionCursorController implements CursorController {
                 mSelY1 = mSelY2;
             }
             if (mSelY1 == mSelY2) {
-                int vSelX1 = terminalView.mRenderer.translateLogicalToVisualColumn(terminalView.mEmulator, mSelX1, mSelY1);
-                int vSelX2 = terminalView.mRenderer.translateLogicalToVisualColumn(terminalView.mEmulator, mSelX2, mSelY2);
+                int vSelX1 = l2v.apply(mSelX1, mSelY1);
+                int vSelX2 = l2v.apply(mSelX2, mSelY2);
                 if (vSelX1 > vSelX2) {
                     vSelX1 = vSelX2;
-                    mSelX1 = terminalView.mRenderer.translateVisualToLogicalColumn(terminalView.mEmulator, vSelX1, mSelY1);
+                    mSelX1 = v2l.apply(vSelX1, mSelY1);
                 }
             }
 
@@ -282,11 +287,11 @@ public class TextSelectionCursorController implements CursorController {
                 mSelY2 = mSelY1;
             }
             if (mSelY1 == mSelY2) {
-                int vSelX1 = terminalView.mRenderer.translateLogicalToVisualColumn(terminalView.mEmulator, mSelX1, mSelY1);
-                int vSelX2 = terminalView.mRenderer.translateLogicalToVisualColumn(terminalView.mEmulator, mSelX2, mSelY2);
+                int vSelX1 = l2v.apply(mSelX1, mSelY1);
+                int vSelX2 = l2v.apply(mSelX2, mSelY2);
                 if (vSelX1 > vSelX2) {
                     vSelX2 = vSelX1;
-                    mSelX2 = terminalView.mRenderer.translateVisualToLogicalColumn(terminalView.mEmulator, vSelX2, mSelY2);
+                    mSelX2 = v2l.apply(vSelX2, mSelY2);
                 }
             }
 
