@@ -91,9 +91,12 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
                 // ponytail: renamed test package — bootstrap ELFs' DT_RUNPATH still points at
                 // com.termux (length-shift unsafe to rewrite in the zip stream), so keep
                 // LD_LIBRARY_PATH pointing at this app's prefix instead of removing it.
-                if (!"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME))
+                if (!"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME)) {
                     environment.put(ENV_LD_LIBRARY_PATH, TermuxConstants.TERMUX_LIB_PREFIX_DIR_PATH);
-                else
+                    // ponytail: ncurses' fallback terminfo lookup is compiled to the com.termux
+                    // sysconfdir in the bootstrap ELFs; point it at this prefix explicitly.
+                    environment.put("TERMINFO", TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/share/terminfo");
+                } else
                     environment.remove(ENV_LD_LIBRARY_PATH);
             }
         }
