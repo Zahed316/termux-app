@@ -167,7 +167,10 @@ final class TermuxInstaller {
                                     String[] parts = line.split("←");
                                     if (parts.length != 2)
                                         throw new RuntimeException("Malformed symlink line: " + line);
-                                    String oldPath = parts[0];
+                                    // ponytail: bootstrap zip hardcodes absolute /data/data/com.termux symlink
+                                    // targets (keyrings); remap to this app's own prefix for the renamed test package.
+                                    // If upstream ever ships relative-only targets, this replace becomes a no-op.
+                                    String oldPath = parts[0].replace("/data/data/com.termux/files/usr", TERMUX_PREFIX_DIR_PATH);
                                     String newPath = TERMUX_STAGING_PREFIX_DIR_PATH + "/" + parts[1];
                                     symlinks.add(Pair.create(oldPath, newPath));
 
