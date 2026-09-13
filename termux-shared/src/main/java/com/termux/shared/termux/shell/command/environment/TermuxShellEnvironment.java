@@ -88,7 +88,13 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
             } else {
                 // Termux binaries on Android 7+ rely on DT_RUNPATH, so LD_LIBRARY_PATH should be unset by default
                 environment.put(ENV_PATH, TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH);
-                environment.remove(ENV_LD_LIBRARY_PATH);
+                // ponytail: renamed test package — bootstrap ELFs' DT_RUNPATH still points at
+                // com.termux (length-shift unsafe to rewrite in the zip stream), so keep
+                // LD_LIBRARY_PATH pointing at this app's prefix instead of removing it.
+                if (!"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME))
+                    environment.put(ENV_LD_LIBRARY_PATH, TermuxConstants.TERMUX_LIB_PREFIX_DIR_PATH);
+                else
+                    environment.remove(ENV_LD_LIBRARY_PATH);
             }
         }
 
